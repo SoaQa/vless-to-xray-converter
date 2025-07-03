@@ -93,27 +93,27 @@ def main():
                 print(f"Ошибка: Не удалось загрузить шаблон '{template_name}'")
                 return
             
-                    # Применяем шаблон с пользовательским тегом
-        config = apply_template(template, vless_data, tag)
-    else:
-        # Генерируем базовую конфигурацию
-        config = create_xray_config(vless_data, tag)
-    
-    # Сохраняем в файл
-    output_file = input("\nВведите имя файла для сохранения (или Enter для пропуска): ").strip()
-    if output_file:
-        try:
-            with open(output_file, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=2, ensure_ascii=False)
-            print(f"Конфигурация сохранена в файл: {output_file}")
-        except Exception as e:
-            print(f"Ошибка сохранения файла: {e}")
-    else:
-        # Выводим результат только если файл не указан
-        print("\nСгенерированная конфигурация:")
-        print(json.dumps(config, indent=2, ensure_ascii=False))
-    
-    return
+            # Применяем шаблон с пользовательским тегом
+            config = apply_template(template, vless_data, tag)
+        else:
+            # Генерируем базовую конфигурацию
+            config = create_xray_config(vless_data, tag)
+        
+        # Сохраняем в файл
+        output_file = input("\nВведите имя файла для сохранения (или Enter для пропуска): ").strip()
+        if output_file:
+            try:
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, indent=2, ensure_ascii=False)
+                print(f"Конфигурация сохранена в файл: {output_file}")
+            except Exception as e:
+                print(f"Ошибка сохранения файла: {e}")
+        else:
+            # Выводим результат только если файл не указан
+            print("\nСгенерированная конфигурация:")
+            print(json.dumps(config, indent=2, ensure_ascii=False))
+        
+        return
     
     # Режим с аргументами
     try:

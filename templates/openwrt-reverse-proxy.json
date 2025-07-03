@@ -61,7 +61,7 @@
                     "bridge"
                 ],
                 "domain": [
-                    "full:router-luci.reverse.xui"
+                    "full:reverse.xui"
                 ],
                 "outboundTag": "{{tag}}"
             },
@@ -92,7 +92,7 @@
         "bridges": [
             {
                 "tag": "bridge",
-                "domain": "router-luci.reverse.xui"
+                "domain": "reverse.xui"
             }
         ]
     }
