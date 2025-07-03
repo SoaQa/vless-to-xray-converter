@@ -80,98 +80,180 @@ def parse_vless_url(vless_url: str) -> dict:
         raise ValueError(f"Ошибка парсинга VLESS URL: {e}")
 
 
-def create_xray_config(vless_data: dict) -> dict:
+def create_xray_config(vless_data: dict, tag: str = None) -> dict:
     """
     Создает конфигурацию Xray на основе данных VLESS
     
     Args:
         vless_data: Словарь с данными VLESS
+        tag: Тег для конфигурации (опционально)
         
     Returns:
         Словарь конфигурации Xray
     """
     params = vless_data['params']
     
-    # Базовая конфигурация
+    # Определяем тег: переданный параметр, fragment из URL, или 'proxy' по умолчанию
+    if tag:
+        config_tag = tag
+    elif vless_data.get('fragment'):
+        config_tag = vless_data['fragment']
+    else:
+        config_tag = 'proxy'
+    
+    # Базовая конфигурация в формате Xray-core
     config = {
-        "type": "vless",
-        "tag": "proxy",
-        "server": vless_data['server'],
-        "server_port": vless_data['port'],
-        "uuid": vless_data['uuid'],
-        "encryption": "none",  # VLESS всегда использует none
-        "flow": "",
-        "packet_encoding": "",
-        "domain_strategy": ""
+        "protocol": "vless",
+        "settings": {
+            "vnext": [
+                {
+                    "address": vless_data['server'],
+                    "port": vless_data['port'],
+                    "users": [
+                        {
+                            "id": vless_data['uuid'],
+                            "encryption": "none"
+                        }
+                    ]
+                }
+            ]
+        },
+        "streamSettings": {
+            "network": "tcp",
+            "security": "none"
+        },
+        "tag": config_tag
     }
     
     # Добавляем flow если указан
     if 'flow' in params:
-        config['flow'] = params['flow']
+        config['settings']['vnext'][0]['users'][0]['flow'] = params['flow']
+    
+    # Настраиваем тип соединения
+    if 'type' in params:
+        config['streamSettings']['network'] = params['type']
     
     # Настраиваем TLS
-    if params.get('security') == 'tls' or params.get('security') == 'reality':
-        tls_config = {
-            "enabled": True,
-            "alpn": [],
-            "utls": {
-                "enabled": True,
-                "fingerprint": "chrome"
-            }
+    if params.get('security') == 'tls':
+        config['streamSettings']['security'] = 'tls'
+        config['streamSettings']['tlsSettings'] = {
+            "allowInsecure": False,
+            "serverName": params.get('sni', vless_data['server'])
         }
         
         # Добавляем ALPN
         if 'alpn' in params:
             alpn_values = params['alpn'].split(',')
-            tls_config['alpn'] = [value.strip() for value in alpn_values]
+            config['streamSettings']['tlsSettings']['alpn'] = [value.strip() for value in alpn_values]
         
         # Настраиваем fingerprint
         if 'fp' in params:
-            tls_config['utls']['fingerprint'] = params['fp']
+            config['streamSettings']['tlsSettings']['fingerprint'] = params['fp']
+    
+    # Настраиваем REALITY
+    elif params.get('security') == 'reality':
+        config['streamSettings']['security'] = 'reality'
+        config['streamSettings']['realitySettings'] = {}
         
-        config['tls'] = tls_config
-    
-    # Настраиваем тип соединения
-    if 'type' in params:
-        config['network'] = params['type']
-    
-    # Добавляем поддержку REALITY
-    if params.get('security') == 'reality':
+        # Обязательные параметры для Reality
         if 'pbk' in params:
-            if 'tls' not in config:
-                config['tls'] = {}
-            config['tls']['reality'] = {
-                "enabled": True,
-                "public_key": params['pbk']
+            config['streamSettings']['realitySettings']['publicKey'] = params['pbk']
+        
+        if 'sni' in params:
+            config['streamSettings']['realitySettings']['serverName'] = params['sni']
+        
+        if 'fp' in params:
+            config['streamSettings']['realitySettings']['fingerprint'] = params['fp']
+        else:
+            config['streamSettings']['realitySettings']['fingerprint'] = 'chrome'
+        
+        if 'sid' in params:
+            config['streamSettings']['realitySettings']['shortId'] = params['sid']
+        
+        if 'spx' in params:
+            config['streamSettings']['realitySettings']['spiderX'] = params['spx']
+        else:
+            config['streamSettings']['realitySettings']['spiderX'] = '/'
+    
+    # Настраиваем WebSocket
+    if params.get('type') == 'ws':
+        config['streamSettings']['wsSettings'] = {
+            "path": params.get('path', '/'),
+            "headers": {}
+        }
+        
+        if 'host' in params:
+            config['streamSettings']['wsSettings']['headers']['Host'] = params['host']
+    
+    # Настраиваем TCP
+    elif params.get('type') == 'tcp':
+        if 'headerType' in params:
+            config['streamSettings']['tcpSettings'] = {
+                "header": {
+                    "type": params['headerType']
+                }
             }
-            if 'sni' in params:
-                config['tls']['reality']['server_name'] = params['sni']
-            if 'fp' in params:
-                config['tls']['reality']['fingerprint'] = params['fp']
-            if 'spx' in params:
-                config['tls']['reality']['spider_x'] = params['spx']
+            
+            if params['headerType'] == 'http':
+                config['streamSettings']['tcpSettings']['header']['request'] = {
+                    "version": "1.1",
+                    "method": "GET",
+                    "path": [params.get('path', '/')],
+                    "headers": {}
+                }
+                
+                if 'host' in params:
+                    config['streamSettings']['tcpSettings']['header']['request']['headers']['Host'] = [params['host']]
+    
+    # Настраиваем gRPC
+    elif params.get('type') == 'grpc':
+        config['streamSettings']['grpcSettings'] = {
+            "serviceName": params.get('serviceName', params.get('path', '')),
+            "multiMode": params.get('mode', 'gun') == 'multi'
+        }
     
     return config
 
 
 def main():
     """Основная функция"""
-    if len(sys.argv) != 2:
-        print("Использование: python vless_to_xray.py \"vless://...\"")
-        print("Пример: python vless_to_xray.py \"vless://b81e68ca-0236-4f30-9942-18c93a1a29fc@dropbit.pro:443?security=tls&alpn=http/1.1&fp=chrome&type=tcp&flow=xtls-rprx-vision&encryption=none#Hidden%20router-main\"")
+    if len(sys.argv) == 1:
+        # Интерактивный режим - запрашиваем VLESS URL и тег
+        print("Конвертер VLESS в формат Xray-core")
+        print("=" * 40)
+        
+        # Шаг 1: Запрашиваем VLESS URL
+        vless_url = input("Введите VLESS URL: ").strip()
+        if not vless_url:
+            print("Ошибка: VLESS URL не может быть пустым")
+            sys.exit(1)
+        
+        # Шаг 2: Запрашиваем тег
+        tag = input("Введите тег для конфигурации: ").strip()
+        if not tag:
+            print("Ошибка: Тег не может быть пустым")
+            sys.exit(1)
+            
+    elif len(sys.argv) == 2:
+        # Режим с аргументом командной строки
+        vless_url = sys.argv[1]
+        tag = None  # Тег будет определен автоматически
+        
+    else:
+        print("Использование: python vless_to_xray.py [\"vless://...\"]")
+        print("Скрипт конвертирует VLESS URL в формат конфигурации Xray-core")
+        print("Если запустить без аргументов, будет запрошен VLESS URL и тег")
         sys.exit(1)
-    
-    vless_url = sys.argv[1]
     
     try:
         # Парсим VLESS URL
         vless_data = parse_vless_url(vless_url)
         
         # Создаем конфигурацию Xray
-        xray_config = create_xray_config(vless_data)
+        xray_config = create_xray_config(vless_data, tag)
         
         # Выводим результат в формате JSON
-        print(json.dumps(xray_config, indent=12, ensure_ascii=False))
+        print(json.dumps(xray_config, indent=4, ensure_ascii=False))
         
     except ValueError as e:
         print(f"Ошибка: {e}")
