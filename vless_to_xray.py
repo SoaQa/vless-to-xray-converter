@@ -7,6 +7,8 @@
 import sys
 import json
 import urllib.parse
+import argparse
+import os
 from urllib.parse import urlparse, parse_qs
 
 
@@ -215,45 +217,229 @@ def create_xray_config(vless_data: dict, tag: str = None) -> dict:
     return config
 
 
+def get_available_templates() -> dict:
+    """
+    Возвращает доступные шаблоны конфигураций
+    
+    Returns:
+        Словарь с доступными шаблонами {простое_имя: путь_к_файлу}
+    """
+    templates = {
+        "openwrt-reverse": "templates/openwrt-reverse-proxy.json"
+    }
+    return templates
+
+
+def load_template(template_name: str) -> dict:
+    """
+    Загружает шаблон конфигурации
+    
+    Args:
+        template_name: Имя шаблона
+        
+    Returns:
+        Словарь с шаблоном конфигурации
+    """
+    templates = get_available_templates()
+    
+    if template_name not in templates:
+        available = ", ".join(templates.keys())
+        raise ValueError(f"Неизвестный шаблон '{template_name}'. Доступные: {available}")
+    
+    template_path = templates[template_name]
+    
+    if not os.path.exists(template_path):
+        raise ValueError(f"Файл шаблона не найден: {template_path}")
+    
+    try:
+        with open(template_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Ошибка в JSON шаблоне {template_path}: {e}")
+
+
+def apply_template(template: dict, vless_data: dict) -> dict:
+    """
+    Применяет данные VLESS к шаблону
+    
+    Args:
+        template: Шаблон конфигурации
+        vless_data: Данные VLESS
+        
+    Returns:
+        Заполненный шаблон
+    """
+    params = vless_data['params']
+    
+    # Подготавливаем данные для замены
+    replacements = {
+        'address': vless_data['server'],
+        'port': str(vless_data['port']),
+        'id': vless_data['uuid'],
+        'tag': vless_data.get('fragment', 'proxy')
+    }
+    
+    # Добавляем параметры из URL
+    if 'pbk' in params:
+        replacements['publicKey'] = params['pbk']
+    if 'sni' in params:
+        replacements['serverName'] = params['sni']
+    if 'fp' in params:
+        replacements['fingerprint'] = params['fp']
+    else:
+        replacements['fingerprint'] = 'chrome'
+    if 'sid' in params:
+        replacements['shortId'] = params['sid']
+    if 'spx' in params:
+        replacements['spiderX'] = params['spx']
+    else:
+        replacements['spiderX'] = '/'
+    
+    # Конвертируем в JSON строку и заменяем плейсхолдеры
+    template_str = json.dumps(template, ensure_ascii=False)
+    
+    for key, value in replacements.items():
+        template_str = template_str.replace(f'{{{{{key}}}}}', value)
+    
+    # Конвертируем port обратно в число
+    template_str = template_str.replace(f'"{vless_data["port"]}"', str(vless_data['port']))
+    
+    return json.loads(template_str)
+
+
+def save_to_file(data: dict, filename: str):
+    """
+    Сохраняет данные в файл
+    
+    Args:
+        data: Данные для сохранения
+        filename: Имя файла
+    """
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+        print(f"Конфигурация сохранена в файл: {filename}")
+    except Exception as e:
+        print(f"Ошибка сохранения файла: {e}")
+        sys.exit(1)
+
+
 def main():
     """Основная функция"""
-    if len(sys.argv) == 1:
-        # Интерактивный режим - запрашиваем VLESS URL и тег
+    parser = argparse.ArgumentParser(
+        description='Конвертер VLESS URL в формат конфигурации Xray-core',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''Примеры использования:
+  python vless_to_xray.py                                      # Интерактивный режим
+  python vless_to_xray.py "vless://..."                       # Конвертация URL
+  python vless_to_xray.py --template openwrt-reverse "vless://..." # Использование шаблона
+  python vless_to_xray.py --output config.json "vless://..."  # Сохранение в файл
+  python vless_to_xray.py --list-templates                    # Список доступных шаблонов
+        '''
+    )
+    
+    parser.add_argument('url', nargs='?', help='VLESS URL для конвертации')
+    parser.add_argument('--template', '-t', help='Имя шаблона для использования')
+    parser.add_argument('--output', '-o', help='Файл для сохранения результата')
+    parser.add_argument('--list-templates', action='store_true', help='Показать доступные шаблоны')
+    
+    args = parser.parse_args()
+    
+    # Показать доступные шаблоны
+    if args.list_templates:
+        templates = get_available_templates()
+        print("Доступные шаблоны:")
+        for name, path in templates.items():
+            print(f"  {name} - {path}")
+        return
+    
+    # Определяем VLESS URL и тег
+    vless_url = None
+    tag = None
+    
+    if args.url:
+        # Режим с аргументом командной строки
+        vless_url = args.url
+        # Если используется шаблон, тег не нужен (он будет из URL или по умолчанию)
+        if not args.template:
+            tag = None
+    else:
+        # Интерактивный режим
         print("Конвертер VLESS в формат Xray-core")
         print("=" * 40)
         
-        # Шаг 1: Запрашиваем VLESS URL
+        # Показываем доступные шаблоны
+        templates = get_available_templates()
+        if templates:
+            print("Доступные шаблоны:")
+            for name, path in templates.items():
+                print(f"  {name} - {path}")
+            print()
+        
+        # Шаг 1: Запрашиваем название шаблона (необязательно)
+        available_templates_str = ', '.join(templates.keys()) if templates else "нет"
+        template_name = input(f"Введите название шаблона ({available_templates_str}) или нажмите Enter для пропуска: ").strip()
+        
+        selected_template = None
+        if template_name:
+            if not templates:
+                print("Ошибка: Шаблоны не найдены.")
+                sys.exit(1)
+            
+            if template_name not in templates:
+                print(f"Ошибка: Неверное название шаблона '{template_name}'. Доступные: {', '.join(templates.keys())}")
+                sys.exit(1)
+            
+            selected_template = template_name
+        
+        # Шаг 2: Запрашиваем VLESS URL
         vless_url = input("Введите VLESS URL: ").strip()
         if not vless_url:
             print("Ошибка: VLESS URL не может быть пустым")
             sys.exit(1)
         
-        # Шаг 2: Запрашиваем тег
-        tag = input("Введите тег для конфигурации: ").strip()
-        if not tag:
-            print("Ошибка: Тег не может быть пустым")
-            sys.exit(1)
-            
-    elif len(sys.argv) == 2:
-        # Режим с аргументом командной строки
-        vless_url = sys.argv[1]
-        tag = None  # Тег будет определен автоматически
+        # Шаг 3: Запрашиваем тег если не используется шаблон
+        if not selected_template:
+            tag = input("Введите тег для конфигурации: ").strip()
+            if not tag:
+                print("Ошибка: Тег не может быть пустым")
+                sys.exit(1)
+        else:
+            tag = None  # Тег будет определен из URL или по умолчанию
         
-    else:
-        print("Использование: python vless_to_xray.py [\"vless://...\"]")
-        print("Скрипт конвертирует VLESS URL в формат конфигурации Xray-core")
-        print("Если запустить без аргументов, будет запрошен VLESS URL и тег")
-        sys.exit(1)
+        # Шаг 4: Запрашиваем файл для сохранения (необязательно)
+        output_file = input("Введите название файла для сохранения или нажмите Enter для вывода на экран: ").strip()
+        
+        # Применяем выбранный шаблон и файл сохранения
+        args.template = selected_template
+        args.output = output_file if output_file else None
     
     try:
         # Парсим VLESS URL
         vless_data = parse_vless_url(vless_url)
         
-        # Создаем конфигурацию Xray
-        xray_config = create_xray_config(vless_data, tag)
+        # Определяем финальный тег
+        if args.template:
+            # При использовании шаблона тег берется из URL или по умолчанию
+            final_tag = vless_data.get('fragment', 'proxy')
+        else:
+            # Используем переданный тег или из URL
+            final_tag = tag if tag else vless_data.get('fragment', 'proxy')
         
-        # Выводим результат в формате JSON
-        print(json.dumps(xray_config, indent=4, ensure_ascii=False))
+        # Создаем конфигурацию
+        if args.template:
+            # Используем шаблон
+            template = load_template(args.template)
+            config = apply_template(template, vless_data)
+        else:
+            # Стандартная конвертация
+            config = create_xray_config(vless_data, final_tag)
+        
+        # Сохраняем или выводим результат
+        if args.output:
+            save_to_file(config, args.output)
+        else:
+            print(json.dumps(config, indent=4, ensure_ascii=False))
         
     except ValueError as e:
         print(f"Ошибка: {e}")

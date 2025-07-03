@@ -1,0 +1,99 @@
+{
+    "log": {
+        "loglevel": "warning"
+    },
+    "outbounds": [
+        {
+            "tag": "out",
+            "protocol": "freedom",
+            "settings": {
+                "redirect": "127.0.0.1:80"
+            }
+        },
+        {
+            "protocol": "vless",
+            "settings": {
+                "vnext": [
+                    {
+                        "address": "{{address}}",
+                        "port": "{{port}}",
+                        "users": [
+                            {
+                                "id": "{{id}}",
+                                "encryption": "none"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "tcp",
+                "security": "reality",
+                "realitySettings": {
+                    "publicKey": "{{publicKey}}",
+                    "serverName": "{{serverName}}",
+                    "fingerprint": "{{fingerprint}}",
+                    "shortId": "{{shortId}}",
+                    "spiderX": "{{spiderX}}"
+                }
+            },
+            "tag": "{{tag}}"
+        },
+        {
+            "protocol": "freedom",
+            "settings": {
+            },
+            "tag": "direct"
+        },
+        {
+            "protocol": "blackhole",
+            "settings": {
+            },
+            "tag": "blocked"
+        }
+    ],
+    "routing": {
+        "domainStrategy": "IPOnDemand",
+        "rules": [
+            {
+                "type": "field",
+                "inboundTag": [
+                    "bridge"
+                ],
+                "domain": [
+                    "full:router-luci.reverse.xui"
+                ],
+                "outboundTag": "{{tag}}"
+            },
+            {
+                "type": "field",
+                "inboundTag": [
+                    "bridge"
+                ],
+                "outboundTag": "out"
+            }
+        ]
+    },
+    "policy": {
+        "levels": {
+            "0": {
+                "uplinkOnly": 0,
+                "downlinkOnly": 0
+            }
+        },
+        "system": {
+            "statsInboundUplink": false,
+            "statsInboundDownlink": false,
+            "statsOutboundUplink": false,
+            "statsOutboundDownlink": false
+        }
+    },
+    "reverse": {
+        "bridges": [
+            {
+                "tag": "bridge",
+                "domain": "router-luci.reverse.xui"
+            }
+        ]
+    }
+} 
