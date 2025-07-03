@@ -37,56 +37,81 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Структура проекта
+
+```
+vless-to-xray-converter/
+├── main.py                      # Точка входа в приложение
+├── vless_converter/             # Основной пакет
+│   ├── __init__.py             # Инициализация пакета
+│   ├── parser.py               # Парсинг VLESS URL
+│   ├── generator.py            # Генерация конфигураций Xray
+│   ├── templates.py            # Работа с шаблонами
+│   └── utils.py                # Вспомогательные функции
+├── templates/                   # Шаблоны конфигураций
+│   └── openwrt-reverse-proxy.json
+├── requirements.txt             # Зависимости Python
+└── README.md                   # Документация
+```
+
+### Модули пакета
+
+- **`parser.py`** - Отвечает за разбор VLESS URL и извлечение параметров
+- **`generator.py`** - Создает стандартные конфигурации Xray-core
+- **`templates.py`** - Управляет загрузкой и применением шаблонов
+- **`utils.py`** - Содержит утилиты для сохранения файлов и форматирования
+
 ## Использование
 
 ### Основные режимы
 
 1. **Интерактивный режим** (рекомендуется):
 ```bash
-python vless_to_xray.py
+python main.py
 ```
 *В интерактивном режиме скрипт пошагово запросит:*
-- *Название шаблона (необязательно - можно пропустить)*
+- *Номер или название шаблона (необязательно - можно пропустить)*
 - *VLESS URL для конвертации*
 - *Тег конфигурации (если шаблон не используется)*
 - *Название файла для сохранения (необязательно - можно пропустить)*
 
 2. **Режим с аргументами**:
 ```bash
-python vless_to_xray.py "vless://..."
+python main.py "vless://..."
 ```
 
 3. **Использование шаблонов**:
 ```bash
-python vless_to_xray.py --template openwrt-reverse "vless://..."
+python main.py --template openwrt-reverse "vless://..."
+python main.py --template 1 "vless://..."  # По номеру
 ```
 
 4. **Сохранение в файл**:
 ```bash
-python vless_to_xray.py --output config.json "vless://..."
+python main.py --output config.json "vless://..."
 ```
 
 ### Флаги команды
 
-- `--template`, `-t` - использовать шаблон (см. список ниже)
+- `--template`, `-t` - использовать шаблон по имени или номеру (см. список ниже)
 - `--output`, `-o` - сохранить результат в файл
-- `--list-templates` - показать доступные шаблоны
+- `--list-templates` - показать доступные шаблоны с номерами
 - `--help`, `-h` - показать справку
 
 ### Примеры
 
 #### Интерактивный режим
 ```bash
-python vless_to_xray.py
+python main.py
 ```
 *Пример сессии:*
 ```
 Конвертер VLESS в формат Xray-core
 ========================================
 Доступные шаблоны:
-  openwrt-reverse - templates/openwrt-reverse-proxy.json
+  1. openwrt-reverse - templates/openwrt-reverse-proxy.json
 
-Введите название шаблона (openwrt-reverse) или нажмите Enter для пропуска: openwrt-reverse
+Введите номер или название шаблона (1 (openwrt-reverse)) или нажмите Enter для пропуска: 1
 Введите VLESS URL: vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag
 Введите название файла для сохранения или нажмите Enter для вывода на экран: config.json
 Конфигурация сохранена в файл: config.json
@@ -94,22 +119,26 @@ python vless_to_xray.py
 
 #### Простая конвертация
 ```bash
-python vless_to_xray.py "vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag"
+python main.py "vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag"
 ```
 
 #### Использование шаблона OpenWRT reverse proxy
 ```bash
-python vless_to_xray.py --template openwrt-reverse "vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag"
+# По имени
+python main.py --template openwrt-reverse "vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag"
+
+# По номеру
+python main.py --template 1 "vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag"
 ```
 
 #### Сохранение в файл
 ```bash
-python vless_to_xray.py --output my-config.json "vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag"
+python main.py --output my-config.json "vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag"
 ```
 
 #### Просмотр доступных шаблонов
 ```bash
-python vless_to_xray.py --list-templates
+python main.py --list-templates
 ```
 
 ## Результат
