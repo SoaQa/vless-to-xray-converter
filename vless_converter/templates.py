@@ -28,6 +28,7 @@ def display_templates_with_numbers() -> dict:
     Returns:
         Словарь {номер: имя_шаблона}
     """
+
     templates = get_available_templates()
     numbered_templates = {}
     
@@ -102,25 +103,34 @@ def load_template(template_name: str) -> dict:
         raise ValueError(f"Ошибка в JSON шаблоне {template_path}: {e}")
 
 
-def apply_template(template: dict, vless_data: dict) -> dict:
+def apply_template(template: dict, vless_data: dict, custom_tag: str = None) -> dict:
     """
     Применяет данные VLESS к шаблону
     
     Args:
         template: Шаблон конфигурации
         vless_data: Данные VLESS
+        custom_tag: Пользовательский тег (опционально)
         
     Returns:
         Заполненный шаблон
     """
     params = vless_data['params']
     
+    # Определяем тег: пользовательский, из фрагмента URL, или 'reverse-proxy' по умолчанию
+    if custom_tag:
+        tag_to_use = custom_tag
+    elif vless_data.get('fragment'):
+        tag_to_use = vless_data['fragment']
+    else:
+        tag_to_use = 'reverse-proxy'
+    
     # Подготавливаем данные для замены
     replacements = {
         'address': vless_data['server'],
         'port': str(vless_data['port']),
         'id': vless_data['uuid'],
-        'tag': vless_data.get('fragment', 'proxy')
+        'tag': tag_to_use
     }
     
     # Добавляем параметры из URL

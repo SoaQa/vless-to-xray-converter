@@ -18,13 +18,13 @@ def create_xray_config(vless_data: dict, tag: str = None) -> dict:
     """
     params = vless_data['params']
     
-    # Определяем тег: переданный параметр, fragment из URL, или 'proxy' по умолчанию
+    # Определяем тег: переданный параметр, fragment из URL, или 'reverse-proxy' по умолчанию
     if tag:
         config_tag = tag
     elif vless_data.get('fragment'):
         config_tag = vless_data['fragment']
     else:
-        config_tag = 'proxy'
+        config_tag = 'reverse-proxy'
     
     # Базовая конфигурация в формате Xray-core
     config = {

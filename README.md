@@ -1,19 +1,15 @@
 # VLESS to Xray Converter
 
-Скрипт для конвертации VLESS конфигурации в формат Xray-core с поддержкой шаблонов.
-
-## Описание
-
-Этот скрипт принимает строку конфигурации VLESS (включая TLS/REALITY) и преобразует её в JSON конфигурацию в формате Xray-core. Поддерживает как простую конвертацию, так и применение готовых шаблонов для специфических конфигураций.
+Утилита для конвертации VLESS URL в конфигурацию Xray-core. Поддерживает различные типы соединений (TLS, Reality, WebSocket, gRPC, TCP) и систему шаблонов.
 
 ## Возможности
 
-- ✅ Конвертация VLESS URL в формат Xray-core
-- ✅ Поддержка TLS и REALITY
-- ✅ Интерактивный режим
-- ✅ Система шаблонов для готовых конфигураций
-- ✅ Сохранение результата в файл
-- ✅ Поддержка различных типов соединений (TCP, WebSocket, gRPC)
+- Конвертация VLESS URL в формат Xray-core
+- Поддержка различных типов соединений (TLS, Reality, WebSocket, gRPC, TCP)
+- Система шаблонов для различных сценариев использования
+- Интерактивный режим для удобного использования
+- Сохранение конфигураций в файл
+- Поддержка пользовательских тегов
 
 ## Установка
 
@@ -63,194 +59,119 @@ vless-to-xray-converter/
 
 ## Использование
 
-### Основные режимы
+### Интерактивный режим
 
-1. **Интерактивный режим** (рекомендуется):
+Самый простой способ использования - без аргументов:
+
 ```bash
 python main.py
 ```
-*В интерактивном режиме скрипт пошагово запросит:*
-- *Номер или название шаблона (необязательно - можно пропустить)*
-- *VLESS URL для конвертации*
-- *Тег конфигурации (если шаблон не используется)*
-- *Название файла для сохранения (необязательно - можно пропустить)*
 
-2. **Режим с аргументами**:
+В интерактивном режиме программа запросит:
+1. VLESS URL
+2. Тег для конфигурации (по умолчанию: reverse-proxy)
+3. Шаблон (опционально)
+4. Файл для сохранения (опционально)
+
+### Командная строка
+
 ```bash
-python main.py "vless://..."
-```
+# Базовое использование
+python main.py vless://... --tag my-server
 
-3. **Использование шаблонов**:
-```bash
-python main.py --template openwrt-reverse "vless://..."
-python main.py --template 1 "vless://..."  # По номеру
-```
+# Использование шаблона
+python main.py vless://... --template openwrt-reverse --tag my-server
 
-4. **Сохранение в файл**:
-```bash
-python main.py --output config.json "vless://..."
-```
+# Сохранение в файл
+python main.py vless://... --output config.json
 
-### Флаги команды
-
-- `--template`, `-t` - использовать шаблон по имени или номеру (см. список ниже)
-- `--output`, `-o` - сохранить результат в файл
-- `--list-templates` - показать доступные шаблоны с номерами
-- `--help`, `-h` - показать справку
-
-### Примеры
-
-#### Интерактивный режим
-```bash
-python main.py
-```
-*Пример сессии:*
-```
-Конвертер VLESS в формат Xray-core
-========================================
-Доступные шаблоны:
-  1. openwrt-reverse - templates/openwrt-reverse-proxy.json
-
-Введите номер или название шаблона (1 (openwrt-reverse)) или нажмите Enter для пропуска: 1
-Введите VLESS URL: vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag
-Введите название файла для сохранения или нажмите Enter для вывода на экран: config.json
-Конфигурация сохранена в файл: config.json
-```
-
-#### Простая конвертация
-```bash
-python main.py "vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag"
-```
-
-#### Использование шаблона OpenWRT reverse proxy
-```bash
-# По имени
-python main.py --template openwrt-reverse "vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag"
-
-# По номеру
-python main.py --template 1 "vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag"
-```
-
-#### Сохранение в файл
-```bash
-python main.py --output my-config.json "vless://uuid@server:port?security=reality&pbk=key&sni=domain.com&sid=123&spx=/#tag"
-```
-
-#### Просмотр доступных шаблонов
-```bash
+# Список доступных шаблонов
 python main.py --list-templates
 ```
 
-## Результат
+### Аргументы командной строки
 
-### Обычная конвертация
-Скрипт выведет JSON конфигурацию в формате Xray-core:
+- `vless_url` - VLESS URL для конвертации
+- `--tag, -g` - Тег для конфигурации (по умолчанию: reverse-proxy)
+- `--template, -t` - Использовать шаблон (номер или имя)
+- `--output, -o` - Сохранить результат в файл
+- `--list-templates` - Показать список доступных шаблонов
 
-```json
-{
-    "protocol": "vless",
-    "settings": {
-        "vnext": [
-            {
-                "address": "server.example.com",
-                "port": 443,
-                "users": [
-                    {
-                        "id": "uuid",
-                        "encryption": "none"
-                    }
-                ]
-            }
-        ]
-    },
-    "streamSettings": {
-        "network": "tcp",
-        "security": "reality",
-        "realitySettings": {
-            "publicKey": "publicKey",
-            "serverName": "domain.com",
-            "fingerprint": "chrome",
-            "shortId": "123",
-            "spiderX": "/"
-        }
-    },
-    "tag": "proxy"
-}
-```
+## Теги
 
-### Конвертация с шаблоном
-При использовании шаблона `openwrt-reverse` получается полная конфигурация для OpenWRT reverse proxy:
+Во всех режимах работы программа запрашивает тег для конфигурации:
 
-```json
-{
-    "log": {
-        "loglevel": "warning"
-    },
-    "outbounds": [
-        {
-            "tag": "out",
-            "protocol": "freedom",
-            "settings": {
-                "redirect": "127.0.0.1:80"
-            }
-        },
-        {
-            "protocol": "vless",
-            "settings": {
-                "vnext": [...]
-            },
-            "streamSettings": {...},
-            "tag": "proxy"
-        }
-    ],
-    "routing": {...},
-    "reverse": {...}
-}
-```
+- **По умолчанию**: `reverse-proxy`
+- **Из URL**: если в VLESS URL есть fragment (часть после #), он используется как тег
+- **Пользовательский**: можно указать любой тег через параметр `--tag` или в интерактивном режиме
+- **При использовании шаблонов**: тег применяется как в конфигурации VLESS, так и в правилах маршрутизации
 
 ## Шаблоны
 
+Программа поддерживает систему шаблонов для различных сценариев использования.
+
 ### Доступные шаблоны
 
-- `openwrt-reverse` - полная конфигурация для OpenWRT reverse proxy
+- `openwrt-reverse-proxy` - Конфигурация для OpenWRT с обратным прокси
+
+### Использование шаблонов
+
+```bash
+# По номеру
+python main.py vless://... --template 1
+
+# По имени
+python main.py vless://... --template openwrt-reverse
+
+# Показать доступные шаблоны
+python main.py --list-templates
+```
 
 ### Создание собственных шаблонов
 
-1. Создайте JSON файл в директории `templates/`
-2. Используйте плейсхолдеры в двойных фигурных скобках:
-   - `{{address}}` - адрес сервера
-   - `{{port}}` - порт
-   - `{{id}}` - UUID
-   - `{{tag}}` - тег конфигурации
-   - `{{publicKey}}` - публичный ключ для Reality
-   - `{{serverName}}` - имя сервера для Reality
-   - `{{fingerprint}}` - отпечаток TLS
-   - `{{shortId}}` - короткий ID для Reality
-   - `{{spiderX}}` - путь для Reality
+Шаблоны хранятся в папке `templates/` в формате JSON. Можно использовать следующие плейсхолдеры:
 
-3. Добавьте шаблон в функцию `get_available_templates()` в коде
+- `{{address}}` - Адрес сервера
+- `{{port}}` - Порт
+- `{{id}}` - UUID пользователя
+- `{{tag}}` - Тег конфигурации
+- `{{publicKey}}` - Публичный ключ (для Reality)
+- `{{serverName}}` - Имя сервера (SNI)
+- `{{fingerprint}}` - Отпечаток TLS
+- `{{shortId}}` - Короткий ID (для Reality)
+- `{{spiderX}}` - Spider X (для Reality)
 
-## Поддерживаемые параметры VLESS
+## Примеры
 
-- `security`: tls, reality
-- `alpn`: протоколы ALPN (разделенные запятыми)
-- `fp`: fingerprint для TLS
-- `type`: тип соединения (tcp, ws, grpc)
-- `flow`: flow для XTLS
-- `encryption`: метод шифрования (всегда none для VLESS)
-- `pbk`: публичный ключ для Reality
-- `sni`: имя сервера для TLS/Reality
-- `sid`: короткий ID для Reality
-- `spx`: путь для Reality
-- `host`: заголовок Host для WebSocket/HTTP
-- `path`: путь для WebSocket/HTTP
-- `serviceName`: имя сервиса для gRPC
-- `mode`: режим gRPC (gun/multi)
+### Базовая конвертация
 
-## Требования
+```bash
+python main.py "vless://uuid@server.com:443?security=tls&type=tcp#my-server"
+```
 
-- Python 3.7+
-- Все необходимые модули входят в стандартную библиотеку Python
+### Использование шаблона
+
+```bash
+python main.py "vless://uuid@server.com:443?security=reality&type=tcp&pbk=key&sni=example.com#my-server" --template openwrt-reverse
+```
+
+### Интерактивный режим
+
+```bash
+python main.py
+# Введите VLESS URL: vless://uuid@server.com:443?security=tls&type=tcp#my-server
+# Введите тег для конфигурации (по умолчанию: reverse-proxy): my-server
+# Введите имя шаблона (номер или имя, или Enter для пропуска): 1
+# Введите имя файла для сохранения (или Enter для пропуска): config.json
+```
+
+## Поддерживаемые типы соединений
+
+- **TLS**: Стандартное TLS соединение
+- **Reality**: Новый протокол от Xray
+- **WebSocket**: HTTP/WebSocket соединение
+- **gRPC**: gRPC соединение
+- **TCP**: Прямое TCP соединение
 
 ## Лицензия
 
