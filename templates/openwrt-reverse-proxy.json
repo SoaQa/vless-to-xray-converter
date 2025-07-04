@@ -20,7 +20,8 @@
                         "users": [
                             {
                                 "id": "{{id}}",
-                                "encryption": "none"
+                                "encryption": "none",
+                                "flow": "{{flow}}"
                             }
                         ]
                     }

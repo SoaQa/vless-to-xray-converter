@@ -148,6 +148,8 @@ def apply_template(template: dict, vless_data: dict, custom_tag: str = None) -> 
         replacements['spiderX'] = params['spx']
     else:
         replacements['spiderX'] = '/'
+    if 'flow' in params:
+        replacements['flow'] = params['flow']
     
     # Конвертируем в JSON строку и заменяем плейсхолдеры
     template_str = json.dumps(template, ensure_ascii=False)
